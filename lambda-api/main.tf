@@ -1,5 +1,5 @@
 data "aws_apigatewayv2_api" "apigw" {
-  api_id = var.api_gateway_id
+  api_id = var.apigateway_id
 }
 
 resource "aws_lambda_function" "lambda" {
@@ -8,7 +8,7 @@ resource "aws_lambda_function" "lambda" {
   role             = aws_iam_role.lambda_role.arn
   runtime          = var.lambda_runtime
   source_code_hash = filebase64sha256(var.lambda_filepath)
-  handler          = "main"
+  handler          = var.lambda_handler_name
   architectures    = [var.lambda_arch]
 }
 
@@ -73,7 +73,7 @@ resource "aws_lambda_permission" "apigw" {
 }
 
 resource "aws_apigatewayv2_integration" "lambda" {
-  api_id                 = var.api_gateway_id
+  api_id                 = var.apigateway_id
   integration_type       = "AWS_PROXY"
   connection_type        = "INTERNET"
   payload_format_version = "2.0"
@@ -81,7 +81,7 @@ resource "aws_apigatewayv2_integration" "lambda" {
 }
 
 resource "aws_apigatewayv2_route" "apigateway_route" {
-  api_id    = var.api_gateway_id
+  api_id    = var.apigateway_id
   route_key = var.endpoint
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }

@@ -4,6 +4,11 @@ variable "lambda_filepath" {
   description = "Path to lambda zip file"
 }
 
+variable "lambda_name" {
+  # default = "deploy"
+  description = "Name to give the lambda"
+}
+
 variable "endpoint" {
   # default = "POST /deploy"
   description = "<METHOD> <RESOURCE> the lambda maps to"
@@ -24,11 +29,6 @@ variable "lambda_arch" {
   description = "Lambda code architecture [ 'x86_64' | 'arm64' ]"
 }
 
-variable "lambda_name" {
-  # default = "deploy"
-  description = "Name to give the lambda"
-}
-
-variable "api_gateway_id" {
-  default = "r4k51ldkjh"
+variable "apigateway_id" {
+  description = "API Gateway ID"
 }
