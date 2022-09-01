@@ -4,8 +4,10 @@ This implements a Lambda and API Gateway pattern.
 
 ### Architecture
 
+This module registers a lambda to a given path on an existing api gateway.
+
 ```
-API Gateway -- /path --> lambda
+API Gateway /path --> lambda
 ```
 
 ### Usage
