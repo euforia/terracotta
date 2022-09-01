@@ -10,14 +10,20 @@ This module registers a lambda to a given path on an existing api gateway.
 API Gateway /path --> lambda
 ```
 
+### Pre-requisites
+
+The following pre-requisites are required:
+
+- Existing API Gateway
+
 ### Usage
 
 ```hcl
 module "lambda-api" {
     lambda_filepath = "../function.zip"
-    lambda_name = "MyName"
-    endpoint = "POST /my_endpoint"
-    apigateway_id = "r4k51ldkji"
+    lambda_name     = "MyName"
+    apigateway_id   = "r4k51ldkji"
+    endpoint        = "POST /my_endpoint"
 }
 ```
 
