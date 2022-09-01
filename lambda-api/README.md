@@ -18,3 +18,5 @@ module "lambda-api" {
     apigateway_id = "r4k51ldkji"
 }
 ```
+
+The default configuration uses the `Golang` runtime, `x86_64` architecture.
