@@ -1,2 +1,11 @@
-.terraform
+# Terraform cache
+.terraform/
+
+# Terraform lock
+.terraform.lock.hcl
+
+# Terraform plan
+*.tfplan
+
+# Terraform state
 *.tfstate
