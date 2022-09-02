@@ -1,5 +1,46 @@
+locals {
+  vpc_id = data.aws_vpc.vpc.id
+}
+
 data "aws_apigatewayv2_api" "apigw" {
   api_id = var.apigateway_id
+}
+
+data "aws_vpc" "vpc" {
+  tags = {
+    Name = var.vpc_name
+  }
+}
+
+data "aws_subnets" "subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [local.vpc_id]
+  }
+}
+
+data "aws_subnet" "subnet" {
+  for_each = toset(data.aws_subnets.subnets.ids)
+  id       = each.value
+}
+
+resource "aws_security_group" "this" {
+  count       = var.create_security_group ? 1 : 0
+  name        = "${var.lambda_name}-sg"
+  description = "Security Group for the ${var.lambda_name} function"
+  vpc_id      = local.vpc_id
+  # tags        = merge(var.tags, tomap("Name", "${var.lambda_name}-function-sg"))
+}
+
+resource "aws_security_group_rule" "egress_all" {
+  count             = var.create_security_group ? 1 : 0
+  description       = "Full outbound access"
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.this[0].id
 }
 
 resource "aws_lambda_function" "lambda" {
@@ -10,6 +51,14 @@ resource "aws_lambda_function" "lambda" {
   source_code_hash = filebase64sha256(var.lambda_filepath)
   handler          = var.lambda_handler_name
   architectures    = [var.lambda_arch]
+
+  dynamic "vpc_config" {
+    for_each = var.vpc_name != "" && var.subnet_name != "" && var.create_security_group ? [true] : []
+    content {
+      security_group_ids = [aws_security_group.this[0].id]
+      subnet_ids         = [for s in data.aws_subnet.subnet : s.id]
+    }
+  }
 }
 
 resource "aws_iam_role" "lambda_role" {
