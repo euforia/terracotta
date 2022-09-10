@@ -35,7 +35,7 @@ variable "apigateway_id" {
 variable "vpc_name" {
   description = "The name of the VPC in which to create the Lambda function."
   type        = string
-  default     = ""
+  default     = null
 }
 
 variable "subnet_name" {
@@ -56,5 +56,15 @@ variable "tags" {
   description = "The tags to add to a resource."
   type        = map(string)
   default     = {}
+}
+
+variable "max_session_duration" {
+  description = <<DESC
+Maximum session duration (in seconds) that you want to set for the specified 
+role. If you do not specify a value for this setting, the default maximum of one 
+hour is applied. This setting can have a value from 1 hour to 12 hours.
+DESC
+  type        = number
+  default     = 3600
 }
 
