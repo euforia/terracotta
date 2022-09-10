@@ -1,5 +1,8 @@
 locals {
-  vpc_id = data.aws_vpc.vpc.id
+  vpc_id          = data.aws_vpc.vpc.*.id
+  name_iam_policy = "${var.lambda_name}-policy"
+  name_iam_role   = "${var.lambda_name}-role"
+  name_sg         = "${var.lambda_name}-sg"
 }
 
 data "aws_apigatewayv2_api" "apigw" {
@@ -7,29 +10,35 @@ data "aws_apigatewayv2_api" "apigw" {
 }
 
 data "aws_vpc" "vpc" {
+  count = var.vpc_name != "" ? 1 : null
   tags = {
     Name = var.vpc_name
   }
 }
 
 data "aws_subnets" "subnets" {
+  count = var.vpc_name != "" ? 1 : null
   filter {
     name   = "vpc-id"
-    values = [local.vpc_id]
+    values = ["${local.vpc_id[0]}"]
   }
 }
 
 data "aws_subnet" "subnet" {
-  for_each = toset(data.aws_subnets.subnets.ids)
+  for_each = toset(data.aws_subnets.subnets.*.ids[0])
   id       = each.value
 }
 
-resource "aws_security_group" "this" {
+resource "aws_security_group" "security_group" {
   count       = var.create_security_group ? 1 : 0
   name        = "${var.lambda_name}-sg"
   description = "Security Group for the ${var.lambda_name} function"
-  vpc_id      = local.vpc_id
-  # tags        = merge(var.tags, tomap("Name", "${var.lambda_name}-function-sg"))
+  vpc_id      = local.vpc_id[0]
+  tags = merge(var.tags,
+    {
+      Name = local.name_sg
+    },
+  )
 }
 
 resource "aws_security_group_rule" "egress_all" {
@@ -40,13 +49,13 @@ resource "aws_security_group_rule" "egress_all" {
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.this[0].id
+  security_group_id = aws_security_group.security_group[0].id
 }
 
 resource "aws_lambda_function" "lambda" {
   filename         = var.lambda_filepath
   function_name    = var.lambda_name
-  role             = aws_iam_role.lambda_role.arn
+  role             = aws_iam_role.lambda.arn
   runtime          = var.lambda_runtime
   source_code_hash = filebase64sha256(var.lambda_filepath)
   handler          = var.lambda_handler_name
@@ -55,57 +64,73 @@ resource "aws_lambda_function" "lambda" {
   dynamic "vpc_config" {
     for_each = var.vpc_name != "" && var.subnet_name != "" && var.create_security_group ? [true] : []
     content {
-      security_group_ids = [aws_security_group.this[0].id]
+      security_group_ids = [aws_security_group.security_group[0].id]
       subnet_ids         = [for s in data.aws_subnet.subnet : s.id]
     }
   }
 }
 
-resource "aws_iam_role" "lambda_role" {
-  name = "${var.lambda_name}_lambda_role"
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    sid    = "LambdaServiceAccess"
+    effect = "Allow"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        },
-        Effect = "Allow"
-        Sid    = "${var.lambda_name}LambdaAssumeRole"
-      }
+    actions = [
+      "sts:AssumeRole",
     ]
-  })
+
+    principals {
+      type = "Service"
+
+      identifiers = [
+        "lambda.amazonaws.com",
+      ]
+    }
+  }
 }
 
-// Cloudwatch logging
-resource "aws_iam_policy" "lambda_logging" {
-  name        = "${var.lambda_name}_lambda_logging"
+data "aws_iam_policy_document" "lambda" {
+  statement {
+    sid    = "AllowLoggingAccessToLambdaFunction"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+
+  statement {
+    sid    = "AllowEC2ENIAccess"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateNetworkInterface",
+      "ec2:DeleteNetworkInterface"
+    ]
+    resources = ["arn:aws:ec2:*:*:*"]
+  }
+}
+
+resource "aws_iam_role" "lambda" {
+  name                 = local.name_iam_role
+  description          = "A role that grants the ${local.name_iam_role} access to AWS resources."
+  assume_role_policy   = data.aws_iam_policy_document.lambda_assume_role.json
+  max_session_duration = var.max_session_duration
+  tags                 = var.tags
+}
+
+resource "aws_iam_policy" "lambda" {
+  name        = local.name_iam_policy
   path        = "/"
-  description = "IAM policy for logging from a lambda"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ],
-        Resource = "arn:aws:logs:*:*:*"
-        Effect   = "Allow"
-      }
-    ]
-  })
+  description = "A policy that grants the ${local.name_iam_policy} access to AWS resources."
+  policy      = data.aws_iam_policy_document.lambda.json
 }
 
-// Attach policy
-resource "aws_iam_role_policy_attachment" "lambda_logs" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.lambda_logging.arn
+resource "aws_iam_role_policy_attachment" "lambda" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = aws_iam_policy.lambda.arn
 }
-
 
 // Allow api gateway to invoke it.
 resource "aws_lambda_permission" "apigw" {
