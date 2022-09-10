@@ -70,6 +70,14 @@ resource "aws_lambda_function" "lambda" {
   }
 }
 
+data "aws_iam_policy" "AWSLambdaBasicExecutionRole" {
+  arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "aws_iam_policy" "AWSLambdaVPCAccessExecutionRole" {
+  arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
     sid    = "LambdaServiceAccess"
@@ -89,29 +97,6 @@ data "aws_iam_policy_document" "lambda_assume_role" {
   }
 }
 
-data "aws_iam_policy_document" "lambda" {
-  statement {
-    sid    = "AllowLoggingAccessToLambdaFunction"
-    effect = "Allow"
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
-    ]
-    resources = ["arn:aws:logs:*:*:*"]
-  }
-
-  statement {
-    sid    = "AllowEC2ENIAccess"
-    effect = "Allow"
-    actions = [
-      "ec2:CreateNetworkInterface",
-      "ec2:DeleteNetworkInterface"
-    ]
-    resources = ["arn:aws:ec2:*:*:*"]
-  }
-}
-
 resource "aws_iam_role" "lambda" {
   name                 = local.name_iam_role
   description          = "A role that grants the ${local.name_iam_role} access to AWS resources."
@@ -120,16 +105,14 @@ resource "aws_iam_role" "lambda" {
   tags                 = var.tags
 }
 
-resource "aws_iam_policy" "lambda" {
-  name        = local.name_iam_policy
-  path        = "/"
-  description = "A policy that grants the ${local.name_iam_policy} access to AWS resources."
-  policy      = data.aws_iam_policy_document.lambda.json
+resource "aws_iam_role_policy_attachment" "basic" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = data.aws_iam_policy.AWSLambdaBasicExecutionRole.arn
 }
 
-resource "aws_iam_role_policy_attachment" "lambda" {
+resource "aws_iam_role_policy_attachment" "exec" {
   role       = aws_iam_role.lambda.name
-  policy_arn = aws_iam_policy.lambda.arn
+  policy_arn = data.aws_iam_policy.AWSLambdaVPCAccessExecutionRole.arn
 }
 
 // Allow api gateway to invoke it.
