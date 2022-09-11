@@ -44,14 +44,6 @@ variable "subnet_name" {
   default     = ""
 }
 
-variable "create_security_group" {
-  description = <<DESC
-Whether the security group for the Lambda function should be created.
-DESC
-  type        = bool
-  default     = false
-}
-
 variable "tags" {
   description = "The tags to add to a resource."
   type        = map(string)

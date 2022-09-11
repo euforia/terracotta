@@ -30,7 +30,7 @@ data "aws_subnet" "subnet" {
 }
 
 resource "aws_security_group" "security_group" {
-  count       = var.create_security_group ? 1 : 0
+  count       = var.vpc_name != "" ? 1 : 0
   name        = "${var.lambda_name}-sg"
   description = "Security Group for the ${var.lambda_name} function"
   vpc_id      = local.vpc_id[0]
@@ -42,7 +42,7 @@ resource "aws_security_group" "security_group" {
 }
 
 resource "aws_security_group_rule" "egress_all" {
-  count             = var.create_security_group ? 1 : 0
+  count             = var.vpc_name != "" ? 1 : 0
   description       = "Full outbound access"
   type              = "egress"
   from_port         = 0
@@ -62,7 +62,7 @@ resource "aws_lambda_function" "lambda" {
   architectures    = [var.lambda_arch]
 
   dynamic "vpc_config" {
-    for_each = var.vpc_name != "" && var.subnet_name != "" && var.create_security_group ? [true] : []
+    for_each = var.vpc_name != "" && var.subnet_name != "" ? [true] : []
     content {
       security_group_ids = [aws_security_group.security_group[0].id]
       subnet_ids         = [for s in data.aws_subnet.subnet : s.id]
