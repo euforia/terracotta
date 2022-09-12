@@ -60,6 +60,9 @@ resource "aws_lambda_function" "lambda" {
   source_code_hash = filebase64sha256(var.lambda_filepath)
   handler          = var.lambda_handler_name
   architectures    = [var.lambda_arch]
+  environment {
+    variables = var.env_vars
+  }
 
   dynamic "vpc_config" {
     for_each = var.vpc_name != "" && var.subnet_name != "" ? [true] : []

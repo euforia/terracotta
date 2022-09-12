@@ -60,3 +60,8 @@ DESC
   default     = 3600
 }
 
+variable "env_vars" {
+  description = "Environment variables to make available"
+  type        = map(string)
+  default     = {}
+}
